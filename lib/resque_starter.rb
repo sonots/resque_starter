@@ -50,7 +50,7 @@ class ResqueStarter
       break unless @handle_thr.alive? # dies if @shutdown and @old_workers.empty?
       begin
         pid, status = Process.waitpid2(-1)
-        @logger.info "worker #{pid} died, status:#{status.exitstatus}"
+        @logger.info "resque worker #{pid} died, status:#{status.exitstatus}"
         @self_write.puts(pid)
       rescue Errno::ECHILD
         @handle_thr.kill if @shutdown # @old_workers should be empty
@@ -116,29 +116,29 @@ class ResqueStarter
     # * CONT - Start to process new jobs again after a USR2
     case sig
     when 'TERM', 'INT' 
-      @logger.info msg << "immediately kill all workers then exit:#{pids.join(',')}"
+      @logger.info msg << "immediately kill all resque workers then exit:#{pids}"
       @shutdown = true
       Process.kill(sig, *pids)
     when 'QUIT'
-      @logger.info msg << "wait for all workers to finish processing then exit:#{pids.join(',')}"
+      @logger.info msg << "wait for all resque workers to finish processing then exit:#{pids}"
       @shutdown = true
       Process.kill(sig, *pids)
     when 'USR1'
-      @logger.info msg << "immediately kill the child of all workers:#{pids.join(',')}"
+      @logger.info msg << "immediately kill the child of all resque workers:#{pids}"
       Process.kill(sig, *pids)
     when 'USR2'
-      @logger.info msg << "don't start to process any new jobs:#{pids.join(',')}"
+      @logger.info msg << "don't start to process any new jobs:#{pids}"
       Process.kill(sig, *pids)
     when 'CONT'
-      @logger.info msg << "start to process new jobs again after USR2:#{pids.join(',')}"
+      @logger.info msg << "start to process new jobs again after USR2:#{pids}"
       Process.kill(sig, *pids)
     when 'TTIN'
       @num_workers += 1
-      @logger.info msg << "increment the number of workers:#{@num_workers}"
+      @logger.info msg << "increment the number of resque workers:#{@num_workers}"
       maintain_worker_count # ToDo: forking from a thread would be unsafe
     when 'TTOU'
       @num_workers -= 1 if @num_workers > 0
-      @logger.info msg << "decrement the number of workers:#{@num_workers}"
+      @logger.info msg << "decrement the number of resque workers:#{@num_workers}"
       maintain_worker_count
     end
   rescue Errno::ESRCH
@@ -166,7 +166,7 @@ class ResqueStarter
       if pid = fork
         @old_workers[pid] = worker_nr
         update_status_file
-        @logger.info "starting new worker #{pid}"
+        @logger.info "starting new resque worker #{pid}"
       else # child
         config[:after_fork].call(self, worker, worker_nr)
         worker.work(config[:dequeue_interval])
