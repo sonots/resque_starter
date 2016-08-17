@@ -32,14 +32,14 @@ queues ['high', 'low']
 # See https://github.com/resque/resque#polling-frequency
 dequeue_interval 0.1
 
-before_fork do |server, worker|
+before_fork do |starter, worker, worker_nr|
   # the following is highly recomended for Rails + "preload_app true"
   # as there's no need for the master process to hold a connection
   defined?(ActiveRecord::Base) and
     ActiveRecord::Base.connection.disconnect!
 end
 
-after_fork do |server, worker|
+after_fork do |starter, worker, worker_nr|
   # the following is *required* for Rails + "preload_app true",
   defined?(ActiveRecord::Base) and
     ActiveRecord::Base.establish_connection

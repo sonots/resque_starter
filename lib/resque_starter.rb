@@ -5,7 +5,7 @@ require 'resque_starter/config'
 require 'resque_starter/logger'
 
 class ResqueStarter
-  attr_reader :config, :logger
+  attr_reader :config, :logger, :old_workers, :num_workers
 
   def initialize(config_file)
     @config = ResqueStarter::Config.new(config_file)
@@ -162,13 +162,13 @@ class ResqueStarter
     until (worker_nr += 1) == @num_workers
       next if @old_workers.value?(worker_nr)
       worker = Resque::Worker.new(*(config[:queues]))
-      config[:before_fork].call(self, worker)
+      config[:before_fork].call(self, worker, worker_nr)
       if pid = fork
         @old_workers[pid] = worker_nr
         update_status_file
         @logger.info "starting new worker #{pid}"
       else # child
-        config[:after_fork].call(self, worker)
+        config[:after_fork].call(self, worker, worker_nr)
         worker.work(config[:dequeue_interval])
         exit
       end
