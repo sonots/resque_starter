@@ -1,9 +1,10 @@
 require 'resque'
 require 'resque_starter/version'
 require 'resque_starter/config'
+require 'resque_starter/logger'
 
 class ResqueStarter
-  attr_reader :config
+  attr_reader :config, :logger
 
   def initialize(config_file)
     @config = ResqueStarter::Config.new(config_file)
@@ -14,21 +15,22 @@ class ResqueStarter
 
     # open pid file
     if config[:pid_file]
-      File.open(config[:pid_file], "w") do |fh|
-        fh.puts $$
-      end rescue abort "failed to open file:#{config[:pid_file]}"
+      begin
+        File.open(config[:pid_file], "w") do |fh|
+          fh.puts $$
+        end
+      rescue => e
+        @logger.error "failed to open file:#{config[:pid_file]}"
+        exit(1)
+      end
       at_exit { File.unlink config[:pid_file] rescue nil }
     end
 
-    # open log file
-    if config[:log_file]
-      File.open(config[:log_file], "a") do |fh|
-        $stdout.flush
-        $stderr.flush
-        $stdout.reopen(fh) rescue abort "failed to reopen STDOUT to file"
-        $stderr.reopen(fh) rescue abort "failed to reopen STDERR to file"
-      end
-    end
+    # create a logger
+    @logger = ResqueStarter::Logger.new(
+      @config[:log_file], @config[:log_shift_age], @config[:log_shift_size]
+    )
+    @logger.level = @config[:log_level]
 
     # create guard that removes the status file
     if config[:status_file]
@@ -37,7 +39,7 @@ class ResqueStarter
   end
 
   def start_resque
-    $stderr.puts "starting resque starter (master) #{Process.pid}"
+    @logger.info "starting resque starter (master) #{Process.pid}"
     preload if config[:preload_app]
     maintain_worker_count
 
@@ -47,7 +49,7 @@ class ResqueStarter
       break unless @handle_thr.alive? # dies if @shutdown and @old_workers.empty?
       begin
         pid, status = Process.waitpid2(-1)
-        $stderr.puts "worker #{pid} died, status:#{status.exitstatus}"
+        @logger.info "worker #{pid} died, status:#{status.exitstatus}"
         @self_write.puts(pid)
       rescue Errno::ECHILD
         @handle_thr.kill if @shutdown # @old_workers should be empty
@@ -55,7 +57,7 @@ class ResqueStarter
       end
     end
 
-    $stderr.puts "shutting down resque starter (master) #{Process.pid}"
+    @logger.info "shutting down resque starter (master) #{Process.pid}"
   end
 
   def install_signal_handler
@@ -106,34 +108,35 @@ class ResqueStarter
     # * CONT - Start to process new jobs again after a USR2
     case sig
     when 'TERM', 'INT' 
-      $stderr.puts msg << "immediately kill all workers then exit:#{pids.join(',')}"
+      @logger.info msg << "immediately kill all workers then exit:#{pids.join(',')}"
       @shutdown = true
       Process.kill(sig, *pids)
     when 'QUIT'
-      $stderr.puts msg << "wait for all workers to finish processing then exit:#{pids.join(',')}"
+      @logger.info msg << "wait for all workers to finish processing then exit:#{pids.join(',')}"
       @shutdown = true
       Process.kill(sig, *pids)
     when 'USR1'
-      $stderr.puts msg << "immediately kill the child of all workers:#{pids.join(',')}"
+      @logger.info msg << "immediately kill the child of all workers:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'USR2'
-      $stderr.puts msg << "don't start to process any new jobs:#{pids.join(',')}"
+      @logger.info msg << "don't start to process any new jobs:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'CONT'
-      $stderr.puts msg << "start to process new jobs again after USR2:#{pids.join(',')}"
+      @logger.info msg << "start to process new jobs again after USR2:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'TTIN'
       @num_workers += 1
-      $stderr.puts msg << "increment the number of workers:#{@num_workers}"
+      @logger.info msg << "increment the number of workers:#{@num_workers}"
       maintain_worker_count # ToDo: forking from a thread would be unsafe
     when 'TTOU'
       @num_workers -= 1 if @num_workers > 0
-      $stderr.puts msg << "decrement the number of workers:#{@num_workers}"
+      @logger.info msg << "decrement the number of workers:#{@num_workers}"
       maintain_worker_count
     end
   rescue Errno::ESRCH
-  rescue
-    abort
+  rescue => e
+    @logger.error(e)
+    exit(1)
   end
 
   def maintain_worker_count
@@ -154,7 +157,7 @@ class ResqueStarter
       config[:before_fork].call(self, worker)
       if pid = fork
         @old_workers[pid] = worker_nr
-        $stderr.puts "starting new worker #{pid}"
+        @logger.info "starting new worker #{pid}"
       else # child
         config[:after_fork].call(self, worker)
         worker.work(config[:dequeue_interval])
@@ -162,7 +165,8 @@ class ResqueStarter
       end
     end
   rescue => e
-    abort
+    @logger.error(e)
+    exit(1)
   end
 
   def preload

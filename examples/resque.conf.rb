@@ -1,8 +1,14 @@
 # Number of concurrency (child resque workers)
 concurrency 2
 
-# By default, resque_starter logs to stderr
+# By default, resque_starter logs to stdout
 # log_file File.join(Dir.pwd, "shared/log/resque_starter.log")
+# log_level 'info'
+
+# Number of old log files to keep, 0 for no rotation
+log_shift_age 0
+# Maximum logfile size (only applies when shift_age > 0)
+log_shift_size 1048576
 
 # Stores pid for resque starter (master) itself
 pid_file File.join(Dir.pwd, "shared/pids/resque_starter.pid")
