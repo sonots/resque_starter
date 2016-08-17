@@ -1,0 +1,40 @@
+# Number of concurrency (child resque workers)
+concurrency 2
+
+# By default, resque_starter logs to stderr
+# log_file File.join(Dir.pwd, "shared/log/resque_starter.log")
+
+# Stores pid for resque starter (master) itself
+pid_file File.join(Dir.pwd, "shared/pids/resque_starter.pid")
+
+# Status file stores pids of resque workers, etc
+status_file File.join(Dir.pwd, "shared/pids/resque_starter.stat")
+
+# Preload application codes before forking to save memory by CoW
+preload_app true
+
+# Watching queues of resque workers in priority orders
+# Same with QUEUES environment variables for rake resque:work
+# See https://github.com/resque/resque#priorities-and-queue-lists
+#
+# Default obtains from @queue class instance variables of worker class
+# See https://github.com/resque/resque#overview
+queues ['high', 'low']
+
+# Polling frequency (default: 5)
+# Same with INTERVAL environment variables for rake resque:work
+# See https://github.com/resque/resque#polling-frequency
+dequeue_interval 0.1
+
+before_fork do |server, worker|
+  # the following is highly recomended for Rails + "preload_app true"
+  # as there's no need for the master process to hold a connection
+  defined?(ActiveRecord::Base) and
+    ActiveRecord::Base.connection.disconnect!
+end
+
+after_fork do |server, worker|
+  # the following is *required* for Rails + "preload_app true",
+  defined?(ActiveRecord::Base) and
+    ActiveRecord::Base.establish_connection
+end

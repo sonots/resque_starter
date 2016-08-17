@@ -1,20 +1,44 @@
 require 'resque'
-require "resque_starter/version"
+require 'resque_starter/version'
+require 'resque_starter/config'
 
 class ResqueStarter
-  attr_reader :opts
+  attr_reader :config
 
-  def initialize(opts)
-    @opts = opts
+  def initialize(config_file)
+    @config = ResqueStarter::Config.new(config_file)
+
     @old_workers = {}
-    @num_workers = opts[:concurrency]
-    @queues      = opts[:queues].split(',') if opts[:queues]
+    @num_workers = config[:concurrency]
     @self_read, @self_write = IO.pipe
+
+    # open pid file
+    if config[:pid_file]
+      File.open(config[:pid_file], "w") do |fh|
+        fh.puts $$
+      end rescue abort "failed to open file:#{config[:pid_file]}"
+      at_exit { File.unlink config[:pid_file] rescue nil }
+    end
+
+    # open log file
+    if config[:log_file]
+      File.open(config[:log_file], "a") do |fh|
+        $stdout.flush
+        $stderr.flush
+        $stdout.reopen(fh) rescue abort "failed to reopen STDOUT to file"
+        $stderr.reopen(fh) rescue abort "failed to reopen STDERR to file"
+      end
+    end
+
+    # create guard that removes the status file
+    if config[:status_file]
+      at_exit { File.unlink config[:status_file] rescue nil }
+    end
   end
 
   def start_resque
     $stderr.puts "starting resque starter (master) #{Process.pid}"
-    preload if opts[:preload_app]
+    preload if config[:preload_app]
     maintain_worker_count
 
     install_signal_handler
@@ -126,14 +150,14 @@ class ResqueStarter
     worker_nr = -1
     until (worker_nr += 1) == @num_workers
       next if @old_workers.value?(worker_nr)
-      worker = Resque::Worker.new(*@queues)
-      # before_fork.call(self, worker)
+      worker = Resque::Worker.new(*(config[:queues]))
+      config[:before_fork].call(self, worker)
       if pid = fork
         @old_workers[pid] = worker_nr
         $stderr.puts "starting new worker #{pid}"
       else # child
-        # after_fork_internal
-        worker.work(opts[:dequeue_interval])
+        config[:after_fork].call(self, worker)
+        worker.work(config[:dequeue_interval])
         exit
       end
     end
