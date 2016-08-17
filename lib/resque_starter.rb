@@ -6,52 +6,59 @@ class ResqueStarter
 
   def initialize(opts)
     @opts = opts
-    @signals_received  = []
-    @current_worker    = nil
-    @old_workers       = {}
-    @last_restart_time = []
-    @mutex             = Mutex.new
-    @worker_processes  = opts[:concurrency]
-    @queues            = opts[:queues].split(',') if opts[:queues]
+    @old_workers = {}
+    @num_workers = opts[:concurrency]
+    @queues      = opts[:queues].split(',') if opts[:queues]
+    @self_read, @self_write = IO.pipe
   end
 
   def start_resque
-    $stderr.puts "starting resque_starter #{Process.pid}"
-    @signal_thr = start_signal_thread
+    $stderr.puts "starting resque starter (master) #{Process.pid}"
     preload if opts[:preload_app]
     maintain_worker_count
 
+    install_signal_handler
+    @handle_thr = start_handle_thread
     while true
-      break unless @signal_thr.alive?
-      pid, status = Process.wait2
-      $stderr.puts "worker #{pid} died, status:#{status.exitstatus}"
-      @mutex.synchronize { @old_workers.delete(pid) }
-      if @shutdown
-        break if @old_workers.empty?
-      else
-        maintain_worker_count
+      break unless @handle_thr.alive? # dies if @shutdown and @old_workers.empty?
+      begin
+        pid, status = Process.waitpid2(-1)
+        $stderr.puts "worker #{pid} died, status:#{status.exitstatus}"
+        @self_write.puts(pid)
+      rescue Errno::ECHILD
+        @handle_thr.kill if @shutdown # @old_workers should be empty
+        sleep 0.1 # avoid busy loop for no child by TTOU
       end
     end
 
-    @signal_thr.kill
+    $stderr.puts "shutting down resque starter (master) #{Process.pid}"
   end
 
-  def start_signal_thread
-    self_read, self_write = IO.pipe
-    install_signal_handler(self_write)
-    Thread.new { wait_and_handle_signal(self_read) }
-  end
-
-  def install_signal_handler(self_write)
+  def install_signal_handler
     %w(TERM INT QUIT USR1 USR2 CONT TTIN TTOU).each do |sig|
-      trap(sig) { self_write.puts(sig) }
+      trap(sig) { @self_write.puts(sig) }
     end
   end
 
-  def wait_and_handle_signal(self_read)
-    while readable_io = IO.select([self_read])
-      signal = readable_io.first[0].gets.strip
-      handle_signal(signal)
+  def start_handle_thread
+    Thread.new {
+      while readable_io = IO.select([@self_read])
+        s = readable_io.first[0].gets.strip
+        if pid = (Integer(s) rescue nil)
+          handle_waitpid2(pid)
+        else
+          handle_signal(s)
+        end
+      end
+    }
+  end
+
+  def handle_waitpid2(pid)
+    @old_workers.delete(pid)
+    if @shutdown
+      @handle_thr.kill if @old_workers.empty?
+    else
+      maintain_worker_count
     end
   end
 
@@ -64,10 +71,7 @@ class ResqueStarter
   # * TTIN - Increment the number of worker processes by one
   # * TTOU - Decrement the number of worker processes by one with QUIT
   def handle_signal(sig)
-    pids = nil
-    @mutex.synchronize do
-      pids = @old_workers.keys.sort
-    end
+    pids = @old_workers.keys.sort
     msg = "received #{sig}, "
 
     # Resque workers respond to a few different signals:
@@ -89,29 +93,30 @@ class ResqueStarter
       $stderr.puts msg << "immediately kill the child of all workers:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'USR2'
-      $stderr.puts msg << "don't start tp process any new jobs:#{pids.join(',')}"
+      $stderr.puts msg << "don't start to process any new jobs:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'CONT'
       $stderr.puts msg << "start to process new jobs again after USR2:#{pids.join(',')}"
       Process.kill(sig, *pids)
     when 'TTIN'
-      @worker_processes += 1
-      $stderr.puts msg << "increment the number of workers:#{@worker_processes}"
+      @num_workers += 1
+      $stderr.puts msg << "increment the number of workers:#{@num_workers}"
       maintain_worker_count # ToDo: forking from a thread would be unsafe
     when 'TTOU'
-      @worker_processes -= 1 if @worker_processes > 0
-      $stderr.puts msg << "decrement the number of workers:#{@worker_processes}"
+      @num_workers -= 1 if @num_workers > 0
+      $stderr.puts msg << "decrement the number of workers:#{@num_workers}"
       maintain_worker_count
     end
+  rescue Errno::ESRCH
   rescue
     abort
   end
 
   def maintain_worker_count
-    return if (off = @old_workers.size - @worker_processes) == 0
+    return if (off = @old_workers.size - @num_workers) == 0
     return spawn_missing_workers if off < 0
     @old_workers.dup.each_pair {|pid, nr|
-      if nr >= @worker_processes
+      if nr >= @num_workers
         Process.kill(:QUIT, pid) rescue nil
       end
     }
@@ -119,8 +124,8 @@ class ResqueStarter
 
   def spawn_missing_workers
     worker_nr = -1
-    until (worker_nr += 1) == @worker_processes
-      @old_workers.value?(worker_nr) and next
+    until (worker_nr += 1) == @num_workers
+      next if @old_workers.value?(worker_nr)
       worker = Resque::Worker.new(*@queues)
       # before_fork.call(self, worker)
       if pid = fork
