@@ -1,4 +1,4 @@
-require 'json'
+require 'yaml'
 require 'resque'
 require 'resque_starter/version'
 require 'resque_starter/config'
@@ -82,7 +82,8 @@ class ResqueStarter
 
   def update_status_file
     return unless @config[:status_file]
-    status = {old_workers:  @old_workers}.to_json
+    # pid => worker_nr
+    status = {'old_workers' => @old_workers}.to_yaml
     File.write(@config[:status_file], status)
   end
 
