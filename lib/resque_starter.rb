@@ -1,3 +1,4 @@
+require 'json'
 require 'resque'
 require 'resque_starter/version'
 require 'resque_starter/config'
@@ -79,8 +80,15 @@ class ResqueStarter
     }
   end
 
+  def update_status_file
+    return unless @config[:status_file]
+    status = {old_workers:  @old_workers}.to_json
+    File.write(@config[:status_file], status)
+  end
+
   def handle_waitpid2(pid)
     @old_workers.delete(pid)
+    update_status_file
     if @shutdown
       @handle_thr.kill if @old_workers.empty?
     else
@@ -157,6 +165,7 @@ class ResqueStarter
       config[:before_fork].call(self, worker)
       if pid = fork
         @old_workers[pid] = worker_nr
+        update_status_file
         @logger.info "starting new worker #{pid}"
       else # child
         config[:after_fork].call(self, worker)
