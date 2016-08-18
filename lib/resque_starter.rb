@@ -169,6 +169,8 @@ class ResqueStarter
         update_status_file
         @logger.info "starting new resque worker #{pid}"
       else # child
+        @self_read.close rescue nil
+        @self_write.close rescue nil
         config[:after_fork].call(self, worker, worker_nr)
         worker.work(config[:dequeue_interval])
         exit
