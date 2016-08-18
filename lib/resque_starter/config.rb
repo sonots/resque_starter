@@ -36,7 +36,7 @@ class ResqueStarter::Config
     queues
     dequeue_interval
   ].each do |name|
-    define_method(name) do |val|
+    define_method(name) do |val = nil|
       if val
         @set[name] = val
       else
