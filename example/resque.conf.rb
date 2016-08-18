@@ -16,9 +16,6 @@ pid_file File.join(Dir.pwd, "shared/pids/resque_starter.pid")
 # Status file stores pids of resque workers, etc
 status_file File.join(Dir.pwd, "shared/pids/resque_starter.stat")
 
-# Preload application codes before forking to save memory by CoW
-preload_app true
-
 # Watching queues of resque workers in priority orders
 # Same with QUEUES environment variables for rake resque:work
 # See https://github.com/resque/resque#priorities-and-queue-lists
@@ -31,6 +28,10 @@ queues ['high', 'low']
 # Same with INTERVAL environment variables for rake resque:work
 # See https://github.com/resque/resque#polling-frequency
 dequeue_interval 0.1
+
+# Preload rails application codes before forking to save memory by CoW
+# require ::File.expand_path('../../config/environment', __FILE__)
+# Rails.application.eager_load!
 
 before_fork do |starter, worker, worker_nr|
   # the following is highly recomended for Rails + "preload_app true"

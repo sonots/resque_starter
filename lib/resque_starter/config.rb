@@ -32,7 +32,6 @@ class ResqueStarter::Config
     log_shift_size
     pid_file
     status_file
-    preload_app
     queues
     dequeue_interval
   ].each do |name|

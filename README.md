@@ -33,7 +33,7 @@ $ gem install resque_starter
 
 Please see [example/resque.conf.rb](./example/resque.conf.rb)
 
-You can configure, logger, pid_file, number of concurrency, dequeue interval, queue lists, and preload\_app.
+You can configure, logger, pid_file, number of concurrency, dequeue interval, queue lists.
 
 # Usage
 

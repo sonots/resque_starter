@@ -41,7 +41,6 @@ class ResqueStarter
 
   def start_resque
     @logger.info "starting resque starter (master) #{Process.pid}"
-    preload if config[:preload_app]
     maintain_worker_count
 
     install_signal_handler
@@ -179,16 +178,5 @@ class ResqueStarter
   rescue => e
     @logger.error(e)
     exit(1)
-  end
-
-  def preload
-    if defined?(Rails) && Rails.respond_to?(:application)
-      # Rails 3
-      Rails.application.eager_load!
-    elsif defined?(Rails::Initializer)
-      # Rails 2.3
-      $rails_rake_task = false
-      Rails::Initializer.run :load_application_classes
-    end
   end
 end
