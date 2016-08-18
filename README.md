@@ -5,7 +5,7 @@
 # Purpose
 
 [resque](https://github.com/resque/resque) provides [resque:workers](https://github.com/resque/resque#running-multiple-workers) task to run multiple resque workers, but it is only for development purpose as [code comments](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/lib/resque/tasks.rb#L23-L38) says.
-It also provides an example configuration of [god](http://godrb.com/) as [resque.god](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/examples/god/resque.god), but it does not allow us to share memory of application codes by utilizing CoW.
+It also provides an example configuration of [god](http://godrb.com/) as [resque.god](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/examples/god/resque.god), but it does not allow us to share memory of preloaded application with Copy-on-write (CoW).
 
 This tool delicately manages multiple resque workers.
 
@@ -33,7 +33,7 @@ $ gem install resque_starter
 
 Please see [example/resque.conf.rb](./example/resque.conf.rb)
 
-You can configure, logger, pid_file, number of concurrency, dequeue interval, queue lists.
+You can configure logger, pid file, number of concurrency, dequeue interval, queue lists.
 
 # Usage
 
@@ -57,12 +57,13 @@ Resque starter responds to a few different signals:
 
 Resque starter itself does not support graceful restart, yet. But, graceful restart can be done with [server-starter](https://github.com/sonots/ruby-server-starter).
 
-Example configuration is available at [server-starter/example/resque](https://github.com/sonots/ruby-server-starter/blob/master/example/resque). You should see `start_server` and `config/resque.conf.rb` files.
+Example configuration is available at [server-starter/example/resque](https://github.com/sonots/ruby-server-starter/blob/master/example/resque). See `start_server` and `config/resque.conf.rb` files.
 
 **HOW IT WORKS**
 
-On receiving HUP signal, server starter creates a new `resque_starter` process.
-The new `resque_starter` process forks a new resque worker. On `after_fork`, the new `resque_starter` sends `TTOU` to old `resque_starter` process, and gracefully shutdowns an old resque worker.
+On receiving HUP signal, server starter creates a new `resque_starter` (master) process.
+The new `resque_starter` process forks a new resque worker.
+On `after_fork`, the new `resque_starter` sends `TTOU` to old `resque_starter` process, and gracefully shutdowns an old resque worker.
 By repeating this procedure, new `resque_starter` process can be gracefully restarted with suppressing number of concurrency up to `concurrency + 1`. 
 
 # Contributing

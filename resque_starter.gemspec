@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.version       = ResqueStarter::VERSION
   spec.authors       = ["Naotoshi Seo"]
   spec.email         = ["sonots@gmail.com"]
-  spec.summary       = %q{Start resque:work concurrently safely.}
-  spec.description   = %q{Start resque:work concurrently safely.}
+  spec.summary       = %q{Start and manage multiple resque workers}
+  spec.description   = %q{Start and manage multiple resque workers.}
   spec.homepage      = "https://github.com/sonots/resque_starter"
   spec.license       = "MIT"
 
