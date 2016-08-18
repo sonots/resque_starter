@@ -12,5 +12,5 @@
 *.o
 *.a
 mkmf.log
-/shared/log/*
-/shared/pids/*
+/tmp/log/*
+/tmp/pids/*

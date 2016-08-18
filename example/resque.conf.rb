@@ -11,10 +11,10 @@ log_shift_age 0
 log_shift_size 1048576
 
 # Stores pid for resque starter (master) itself
-pid_file File.join(Dir.pwd, "shared/pids/resque_starter.pid")
+pid_file ::File.expand_path('../../tmp/pids/resque_starter.pid', __FILE__)
 
 # Status file stores pids of resque workers, etc
-status_file File.join(Dir.pwd, "shared/pids/resque_starter.stat")
+status_file ::File.expand_path('../../tmp/pids/resque_starter.stat', __FILE__)
 
 # Watching queues of resque workers in priority orders
 # Same with QUEUES environment variables for rake resque:work
