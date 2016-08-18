@@ -27,11 +27,8 @@ class ResqueStarter
       at_exit { File.unlink config[:pid_file] rescue nil }
     end
 
-    # create a logger
-    @logger = ResqueStarter::Logger.new(
-      @config[:log_file], @config[:log_shift_age], @config[:log_shift_size]
-    )
-    @logger.level = @config[:log_level]
+    # logger
+    @logger = @config[:logger]
 
     # create guard that removes the status file
     if config[:status_file]

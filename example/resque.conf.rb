@@ -2,13 +2,9 @@
 concurrency 2
 
 # By default, resque_starter logs to stdout
-# log_file File.join(Dir.pwd, "shared/log/resque_starter.log")
-# log_level 'info'
-
-# Number of old log files to keep, 0 for no rotation
-log_shift_age 0
-# Maximum logfile size (only applies when shift_age > 0)
-log_shift_size 1048576
+# logger ::Logger.new(::File.expand_path('../../tmp/log/resque_starter.log', __FILE__))
+# logger.level = ::Logger::INFO
+# logger.formatter = ResqueStarter::Logger::Formatter.new
 
 # Stores pid for resque starter (master) itself
 pid_file ::File.expand_path('../../tmp/pids/resque_starter.pid', __FILE__)

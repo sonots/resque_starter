@@ -23,6 +23,7 @@ class ResqueStarter::Logger < ::Logger
     logdev = STDERR if logdev == 'STDERR'
     super(logdev, shift_age, shift_size)
     @formatter = Formatter.new
+    self.level = 'INFO'
   end
 
   def level=(level)

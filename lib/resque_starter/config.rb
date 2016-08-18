@@ -17,19 +17,13 @@ class ResqueStarter::Config
     @set = Hash.new
     @set[:concurrency] = 1
     @set[:dequeue_interval] = 5.0
-    @set[:log_file] = 'STDOUT'
-    @set[:log_level] = 'info'
-    @set[:log_shift_age] = 0 # 0 for no rotation
-    @set[:log_shift_size] = 1048576 # bytes
+    @set[:logger] = ResqueStarter::Logger.new(STDOUT)
     instance_eval(File.read(@config_file), @config_file)
   end
 
   %i[
     concurrency
-    log_file
-    log_level
-    log_shift_age
-    log_shift_size
+    logger
     pid_file
     status_file
     queues
