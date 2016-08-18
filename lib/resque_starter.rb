@@ -163,6 +163,7 @@ class ResqueStarter
       next if @old_workers.value?(worker_nr)
       worker = Resque::Worker.new(*(config[:queues]))
       config[:before_fork].call(self, worker, worker_nr)
+      GC.start
       if pid = fork
         @old_workers[pid] = worker_nr
         update_status_file
