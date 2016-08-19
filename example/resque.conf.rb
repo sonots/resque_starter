@@ -1,4 +1,4 @@
-# Number of concurrency (child resque workers)
+# Number of concurrency (resque workers)
 concurrency 2
 
 # By default, resque_starter logs to stdout
