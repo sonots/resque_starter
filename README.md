@@ -1,6 +1,6 @@
-# resque_starter
+# ResqueStarter
 
-`resque_starter` is a tool to start and manage multiple resque workers concurrently.
+ResqueStarter is a tool to start and manage multiple resque workers.
 
 # Purpose
 
