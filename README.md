@@ -1,13 +1,19 @@
 # ResqueStarter
 
-ResqueStarter is a tool to start and manage multiple resque workers.
+[Resque](https://github.com/resque/resque) is widely used Redis-backed Ruby library for creating background jobs. [ResqueStarter](https://github.com/sonots/resque_starter) is a tool to start and manage multiple resque workers supporing graceful shutdown and restart, leveraging the [Copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
 
-# Purpose
+```
+PID   COMMAND
+14814 resque_starter # preload app
+14815  \_ resque:work[1]
+14816  \_ resque:work[2]
+14817  \_ resque:work[3]
+```
 
-[resque](https://github.com/resque/resque) provides [resque:workers](https://github.com/resque/resque#running-multiple-workers) task to run multiple resque workers, but it is only for development purpose as [code comments](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/lib/resque/tasks.rb#L23-L38) says.
-It also provides an example configuration of [god](http://godrb.com/) as [resque.god](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/examples/god/resque.god), but it does not allow us to share memory of preloaded application with Copy-on-write (CoW).
+# Background
 
-This tool delicately manages multiple resque workers.
+[Resque](https://github.com/resque/resque) provides [resque:workers](https://github.com/resque/resque#running-multiple-workers) task to run multiple resque workers, but it is only for development purpose as [code comments](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/lib/resque/tasks.rb#L23-L38) says.
+It also provides an example configuration of [god](http://godrb.com/) as [resque.god](https://github.com/resque/resque/blob/c295da9de0034b20ce79600e9f54fb279695f522/examples/god/resque.god), but it does not allow us to leverage Copy-on-write (CoW) to save memory of preloaded application.
 
 # Installation
 
@@ -62,9 +68,47 @@ Example configuration is available at [server-starter/example/resque](https://gi
 **HOW IT WORKS**
 
 On receiving HUP signal, server starter creates a new `resque_starter` (master) process.
-The new `resque_starter` process forks a new resque worker.
-On `after_fork`, the new `resque_starter` sends `TTOU` to old `resque_starter` process, and gracefully shutdowns an old resque worker.
-By repeating this procedure, new `resque_starter` process can be gracefully restarted with suppressing number of concurrency up to `concurrency + 1`. 
+The new `resque_starter` (master) process forks a new resque:work.
+On `after_fork`, send `TTOU` to old `resque_starter` (master) process to gracefully shutdown one old resque:work.
+By repeating this procedure, new `resque_starter` process can be gracefully restarted.
+The number of working resque workers will be suppressed up to `concurrency + 1` in this way.
+
+**ILLUSTRATION**
+
+On bootup:
+
+```
+PID   COMMAND
+14813 server_starter
+14814  \_ resque_starter
+14815      \_ resque:work[1]
+14816      \_ resque:work[2]
+14817      \_ resque:work[3]
+```
+
+Send HUP:
+
+```
+PID   COMMAND
+14813 server_starter
+14814  \_ resque_starter (old)
+14815      \_ resque:work[1] (dies)
+14816      \_ resque:work[2]
+14817      \_ resque:work[3]
+14818  \_ resque_starter (new)
+14819      \_ resque:work[1]
+```
+
+Finally:
+
+```
+PID   COMMAND
+14813 server_starter
+14818  \_ resque_starter (new)
+14819      \_ resque:work[1]
+14820      \_ resque:work[2]
+14821      \_ resque:work[3]
+```
 
 # Contributing
 
