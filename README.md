@@ -105,9 +105,9 @@ Finally:
 PID   COMMAND
 14813 server_starter
 14818  \_ resque_starter (new)
-14819      \_ resque work[0]
-14820      \_ resque work[1]
-14821      \_ resque work[2]
+14819      \_ resque worker[0]
+14820      \_ resque worker[1]
+14821      \_ resque worker[2]
 ```
 
 # Contributing
