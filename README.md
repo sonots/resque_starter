@@ -1,6 +1,6 @@
 # ResqueStarter
 
-[Resque](https://github.com/resque/resque) is widely used Redis-backed Ruby library for creating background jobs. [ResqueStarter](https://github.com/sonots/resque_starter) is a tool to start and manage multiple resque workers supporing graceful shutdown and restart, leveraging the [Copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
+[Resque](https://github.com/resque/resque) is widely used Redis-backed Ruby library for creating background jobs. [ResqueStarter](https://github.com/sonots/resque_starter) is a tool to start and manage multiple resque workers supporting graceful shutdown and restart, leveraging the [Copy-on-write (COW)](https://en.wikipedia.org/wiki/Copy-on-write).
 
 ```
 PID   COMMAND
@@ -68,8 +68,8 @@ Example configuration is available at [server-starter/example/resque](https://gi
 **HOW IT WORKS**
 
 On receiving HUP signal, server starter creates a new `resque_starter` (master) process.
-The new `resque_starter` (master) process forks a new resque:work.
-On `after_fork`, send `TTOU` to old `resque_starter` (master) process to gracefully shutdown one old resque:work.
+The new `resque_starter` (master) process forks a new resque worker.
+On `after_fork`, send `TTOU` to old `resque_starter` (master) process to gracefully shutdown one old resque worker.
 By repeating this procedure, new `resque_starter` process can be gracefully restarted.
 The number of working resque workers will be suppressed up to `concurrency + 1` in this way.
 
@@ -81,9 +81,9 @@ On bootup:
 PID   COMMAND
 14813 server_starter
 14814  \_ resque_starter
-14815      \_ resque:work[1]
-14816      \_ resque:work[2]
-14817      \_ resque:work[3]
+14815      \_ resque worker[0]
+14816      \_ resque worker[1]
+14817      \_ resque worker[2]
 ```
 
 Send HUP:
@@ -92,11 +92,11 @@ Send HUP:
 PID   COMMAND
 14813 server_starter
 14814  \_ resque_starter (old)
-14815      \_ resque:work[1] (dies)
-14816      \_ resque:work[2]
-14817      \_ resque:work[3]
+14815      \_ resque worker[0] (dies)
+14816      \_ resque worker[1]
+14817      \_ resque worker[2]
 14818  \_ resque_starter (new)
-14819      \_ resque:work[1]
+14819      \_ resque worker[0]
 ```
 
 Finally:
@@ -105,9 +105,9 @@ Finally:
 PID   COMMAND
 14813 server_starter
 14818  \_ resque_starter (new)
-14819      \_ resque:work[1]
-14820      \_ resque:work[2]
-14821      \_ resque:work[3]
+14819      \_ resque work[0]
+14820      \_ resque work[1]
+14821      \_ resque work[2]
 ```
 
 # Contributing
